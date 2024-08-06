@@ -3,10 +3,8 @@ const express = require('express');
 var path = require('path');
 var cookieParser = require('cookie-parser');
 var logger = require('morgan');
+require('dotenv').config();
 
-
-// var indexRouter = require('./routes/index');
-// var usersRouter = require('./routes/users');
 const { default: mongoose } = require('mongoose');
 
 var app = express();
@@ -15,7 +13,7 @@ const corsOptions = {
   origin: ['http://localhost:3000', 'http://127.0.0.1:3000','http://localhost:3001', 'http://127.0.0.1:3001'],
 }
 
-mongoose.connect("mongodb+srv://barg555:29993434@testcluster.zvccwbg.mongodb.net/BankWebApp?retryWrites=true&w=majority&appName=testCluster")
+mongoose.connect(process.env.MONGODB_LOCAL_URI)
 .then(() => {console.log("logged to DB")}).catch((err) => {console.log(`faild to connect to DB: ${err}`)});
 app.use(cors(corsOptions))
 app.use(logger('dev'));
