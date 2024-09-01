@@ -13,14 +13,14 @@ const corsOptions = {
   origin: ['http://localhost:3000', 'http://127.0.0.1:3000','http://localhost:3001', 'http://127.0.0.1:3001'],
 }
 
-mongoose.connect(process.env.MONGODB_LOCAL_URI)
+mongoose.connect("mongodb+srv://barg555:29993434@testcluster.zvccwbg.mongodb.net/BankWebApp?retryWrites=true&w=majority&appName=testCluster")
 .then(() => {console.log("logged to DB")}).catch((err) => {console.log(`faild to connect to DB: ${err}`)});
 app.use(cors(corsOptions))
 app.use(logger('dev'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
-app.use(express.static(path.join(__dirname, 'frontend/build')));
+app.use(express.static(path.join(__dirname, 'public')));
 // app.get('/*', (req, res) => {
 //   res.sendFile(path.join(__dirname,'frontend/build', 'index.html'));
 // });

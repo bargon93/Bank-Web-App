@@ -10,37 +10,39 @@ const handleNewTransaction = async (req, res) => {
 
     const session = await mongoose.startSession();
     session.startTransaction();
-
-    const foundSenderBalance = await Balances.findOne({mail: mail}).session(session);
-
-    if(!foundSenderBalance) {
-        await session.abortTransaction();
-        return res.status(401).json({'error' : 'Failed to authorize user'});
-    }
-
-    const foundReceiverBalance = await Balances.findOne({mail: receiver}).session(session);
+    let foundSenderBalance;
+    let foundReceiverBalance;
+    try {
+        foundSenderBalance = await Balances.findOne({mail: mail}).session(session);
+        foundReceiverBalance = await Balances.findOne({mail: receiver}).session(session);
+        if(!foundSenderBalance) {
+            await session.abortTransaction();
+            return res.status(401).json({'error' : 'Failed to authorize user'});
+        }
+        if(!foundReceiverBalance) {
+            await session.abortTransaction();
+            return res.status(404).json({'error' : 'Receiver account does not exists'});
+        }
+        if(amount <= 0) {
+            await session.abortTransaction();
+            return res.status(400).json({'error' : 'Invalid amount to transfer'});
+        }
     
-    if(!foundReceiverBalance) {
+        if(amount > foundSenderBalance.balance) {
+            await session.abortTransaction();
+            return res.status(400).json({'error' : 'Not enough money in the account'});
+        }
+    } catch(err) {
         await session.abortTransaction();
-        return res.status(404).json({'error' : 'Receiver account does not exists'});
+        return res.status(500).json({'error' : err.message})
     }
-
-    if(amount <= 0) {
-        await session.abortTransaction();
-        return res.status(400).json({'error' : 'Invalid amount to transfer'});
-    }
-
-    if(amount > foundSenderBalance.balance) {
-        await session.abortTransaction();
-        return res.status(400).json({'error' : 'Not enough money in the account'});
-    }
+    
 
     try{
-        await Balances.findOneAndUpdate({mail: mail}, {balance: foundSenderBalance.balance - amount});
-        await Balances.findOneAndUpdate({mail: receiver}, {balance: foundReceiverBalance.balance + amount})
-        await Transactions.create({amount: amount, sender: mail, receiver: receiver});
+        await Balances.findOneAndUpdate({mail: mail}, {balance: foundSenderBalance.balance - amount}).session(session);
+        await Balances.findOneAndUpdate({mail: receiver}, {balance: foundReceiverBalance.balance + amount}).session(session);
+        await Transactions.create({amount: amount, sender: mail, receiver: receiver}).session(session);
         const wsConnections = clients.get(receiver)
-        console.log(wsConnections);
         if(wsConnections) {
             for (const connection of wsConnections) {
                 connection.send(`Received transaction from ${mail} in the amount ${amount}`);
@@ -49,6 +51,7 @@ const handleNewTransaction = async (req, res) => {
         await session.commitTransaction();
         res.status(201).json({'success' : 'Transaction completed successfully'});
     } catch(err) {
+        console.log(err);
         await session.abortTransaction();
         res.status(500).json({'error' : 'Failed to complete transaction'});
     } finally {
