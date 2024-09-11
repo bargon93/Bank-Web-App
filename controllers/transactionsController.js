@@ -41,7 +41,13 @@ const handleNewTransaction = async (req, res) => {
     try{
         await Balances.findOneAndUpdate({mail: mail}, {balance: foundSenderBalance.balance - amount}).session(session);
         await Balances.findOneAndUpdate({mail: receiver}, {balance: foundReceiverBalance.balance + amount}).session(session);
-        await Transactions.create({amount: amount, sender: mail, receiver: receiver}).session(session);
+        const newTransaction = new Transactions({
+            amount: amount,
+            sender: mail,
+            receiver: receiver
+        });
+
+        await newTransaction.save({session});
         const wsConnections = clients.get(receiver)
         if(wsConnections) {
             for (const connection of wsConnections) {
@@ -61,7 +67,7 @@ const handleNewTransaction = async (req, res) => {
 }
 
 const handleTransactions = async (req, res) => {
-    console.log("In transaction server");
+    // console.log("In transaction server");
     const {limit, offset} = req.query;
     if(!limit) limit = 10;
     if(!offset) offset = 0;
@@ -69,7 +75,7 @@ const handleTransactions = async (req, res) => {
     if(!mail) return res.status(401).json({'error' : 'Failed to authorize user'});
     const transactionsAmount = await Transactions.countDocuments({$or: [{sender: mail}, {receiver: mail}]});
     const transactions = await Transactions.find({$or: [{sender: mail}, {receiver: mail}]}, {'_id' : 0, '__v' : 0}).skip(offset).limit(limit).sort({_id: -1});
-    console.log(`transaction server function : ${transactions}`);
+    // console.log(`transaction server function : ${transactions}`);
     const totalPages = Math.ceil(transactionsAmount/limit);
     const currentPage = Math.floor(offset/limit + 1);
     res.status(200).json({'transactions' : transactions, 'total_pages' : totalPages, 'current_page' : currentPage, 'total_items' : transactionsAmount})
